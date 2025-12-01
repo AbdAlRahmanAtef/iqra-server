@@ -1,4 +1,6 @@
 const puppeteer = require("puppeteer");
+const puppeteerCore = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium");
 
 // HTML template for daily report
 const generateDailyReportHTML = (sessions, date) => {
@@ -341,10 +343,24 @@ const getBadgeClass = (level) => {
 
 // Main function to generate PDF from HTML
 const generatePDFFromHTML = async (html) => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  let browser;
+
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION) {
+    // Production (Vercel/Lambda)
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+  } else {
+    // Local development
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+  }
 
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: "networkidle0" });
