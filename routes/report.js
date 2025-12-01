@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const PDFDocument = require("pdfkit-table");
 const {
   generateDailyReport,
   generateMonthlyReport,
@@ -17,24 +16,23 @@ router.get("/today", async (req, res) => {
       [today]
     );
 
-    const doc = new PDFDocument({ margin: 30, size: "A4" });
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      "attachment; filename=daily-report.pdf"
-    );
-
-    doc.pipe(res);
-
     // Hijri date for title
     const hijriDate = moment().format("iD iMMMM iYYYY");
-    generateDailyReport(doc, sessions, hijriDate);
 
-    doc.end();
+    const pdfBuffer = await generateDailyReport(sessions, hijriDate);
+
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": "attachment; filename=daily-report.pdf",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
+    res.end(pdfBuffer);
   } catch (error) {
     console.error("Error generating daily report:", error);
-    res.status(500).send("Error generating report");
+    if (!res.headersSent) {
+      res.status(500).send("Error generating report: " + error.message);
+    }
   }
 });
 
@@ -49,23 +47,21 @@ router.get("/month", async (req, res) => {
       [startStr]
     );
 
-    const doc = new PDFDocument({ margin: 30, size: "A4" });
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      "attachment; filename=monthly-report.pdf"
-    );
-
-    doc.pipe(res);
-
     const currentMonth = moment().format("iMMMM iYYYY");
-    generateMonthlyReport(doc, sessions, currentMonth);
+    const pdfBuffer = await generateMonthlyReport(sessions, currentMonth);
 
-    doc.end();
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": "attachment; filename=monthly-report.pdf",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
+    res.end(pdfBuffer);
   } catch (error) {
     console.error("Error generating monthly report:", error);
-    res.status(500).send("Error generating report");
+    if (!res.headersSent) {
+      res.status(500).send("Error generating report: " + error.message);
+    }
   }
 });
 
@@ -87,20 +83,24 @@ router.get("/student/:studentName", async (req, res) => {
       [studentName, startDate]
     );
 
-    const doc = new PDFDocument({ margin: 50 });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="student-report.pdf"'
+    const pdfBuffer = await generateStudentReport(
+      sessions,
+      currentMonth,
+      studentName
     );
-    doc.pipe(res);
 
-    generateStudentReport(doc, sessions, currentMonth, studentName);
-
-    doc.end();
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": 'attachment; filename="student-report.pdf"',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
+    res.end(pdfBuffer);
   } catch (error) {
     console.error("Error generating student report:", error);
-    res.status(500).json({ error: "Failed to generate student report" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate student report" });
+    }
   }
 });
 

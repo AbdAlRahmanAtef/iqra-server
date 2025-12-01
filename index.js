@@ -11,10 +11,44 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const authMiddleware = require("./middleware/auth");
+
+// Login Route
+const db = require("./db");
+const bcrypt = require("bcrypt");
+
+// Login Route
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const [admins] = await db.execute("SELECT * FROM admins WHERE email = ?", [
+      email,
+    ]);
+
+    if (admins.length === 0) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const admin = admins[0];
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (isMatch) {
+      res.json({ token: "admin-token-secret", user: { email: admin.email } });
+    } else {
+      res.status(401).json({ error: "Invalid credentials" });
+    }
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Routes
-app.use("/session", sessionRoutes);
-app.use("/report", reportRoutes);
-app.use("/students", studentRoutes);
+app.use("/session", authMiddleware, sessionRoutes);
+app.use("/report", reportRoutes); // Reports might need protection too, but let's stick to the plan
+app.use("/students", authMiddleware, studentRoutes);
 
 app.get("/", (req, res) => {
   res.send("Quran Lesson Tracker API is running");
