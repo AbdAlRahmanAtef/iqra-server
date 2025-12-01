@@ -6,9 +6,10 @@ const chromium = require("@sparticuz/chromium");
 const generateDailyReportHTML = (sessions, date) => {
   const sessionRows = sessions
     .map(
-      (session) => `
+      (session, index) => `
     <tr>
-      <td>${session.student_name}</td>
+      <td>${index + 1}</td>
+      <td class="font-bold">${session.student_name}</td>
       <td>${session.new_lesson}</td>
       <td><span class="badge badge-${getBadgeClass(session.level)}">${
         session.level
@@ -43,72 +44,109 @@ const generateDailyReportHTML = (sessions, date) => {
       direction: rtl;
       text-align: right;
       padding: 40px;
-      background: #f9fafb;
+      background: #f8fafc;
+      color: #1e293b;
+      -webkit-print-color-adjust: exact;
     }
     
     .container {
-      max-width: 900px;
+      max-width: 100%;
       margin: 0 auto;
       background: white;
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 16px;
     }
     
     .header {
       text-align: center;
       margin-bottom: 30px;
-      border-bottom: 3px solid #3b82f6;
+      border-bottom: 2px solid #e2e8f0;
       padding-bottom: 20px;
     }
     
     h1 {
-      color: #1e40af;
-      font-size: 28px;
-      margin-bottom: 10px;
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
     }
     
     .date {
-      color: #6b7280;
-      font-size: 16px;
-      margin-top: 10px;
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .summary-card {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      display: inline-block;
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+    }
+
+    .summary-text {
+      font-size: 18px;
+      font-weight: 700;
     }
     
     table {
       width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 10px;
     }
     
     thead {
-      background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-      color: white;
+      background-color: #f8fafc;
     }
     
     th {
-      padding: 15px;
+      padding: 12px 16px;
       text-align: right;
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
     }
+
+    th:first-child { border-top-right-radius: 8px; }
+    th:last-child { border-top-left-radius: 8px; }
     
     td {
-      padding: 12px;
+      padding: 12px 16px;
       text-align: right;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #f1f5f9;
       font-size: 13px;
+      color: #334155;
+      vertical-align: middle;
+      word-break: keep-all;
     }
     
-    tbody tr:hover {
-      background-color: #f3f4f6;
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tbody tr:nth-child(even) {
+      background-color: #fcfcfc;
+    }
+
+    .font-bold {
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
     }
     
     .badge {
-      padding: 4px 12px;
-      border-radius: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       display: inline-block;
+      white-space: nowrap;
     }
     
     .badge-excellent { background: #dcfce7; color: #166534; }
@@ -119,12 +157,12 @@ const generateDailyReportHTML = (sessions, date) => {
     .badge-repeat { background: #fce7f3; color: #831843; }
     
     .footer {
-      margin-top: 30px;
+      margin-top: 40px;
       text-align: center;
-      color: #9ca3af;
+      color: #94a3b8;
       font-size: 12px;
       padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid #e2e8f0;
     }
   </style>
 </head>
@@ -134,15 +172,27 @@ const generateDailyReportHTML = (sessions, date) => {
       <h1>📖 تقرير درس القرآن اليومي</h1>
       <p class="date">📅 التاريخ: ${date}</p>
     </div>
+
+    <div style="text-align: center; display: flex; justify-content: center; gap: 20px;">
+      <div class="summary-card">
+        <span class="summary-text">إجمالي الحصص: ${sessions.length}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-text">إجمالي الطلاب: ${
+          new Set(sessions.map((s) => s.student_name)).size
+        }</span>
+      </div>
+    </div>
     
     <table>
       <thead>
         <tr>
+          <th style="width: 50px">#</th>
           <th>اسم الطالب</th>
-          <th>درس جديد</th>
+          <th>الحفظ الجديد</th>
           <th>المستوى</th>
-          <th>مراجعة</th>
-          <th>مستوى المراجعة</th>
+          <th>المراجعة</th>
+          <th>المستوي</th>
         </tr>
       </thead>
       <tbody>
@@ -164,10 +214,20 @@ const generateDailyReportHTML = (sessions, date) => {
 // HTML template for monthly report
 const generateMonthlyReportHTML = (sessions, month, studentName = null) => {
   const sessionRows = sessions
-    .map(
-      (session) => `
+    .map((session, index) => {
+      // Remove year from hijri date (assuming format ends with year)
+      // Example: "10 Jumada Al-Akhirah 1447" -> "10 Jumada Al-Akhirah"
+      const dateWithoutYear = session.date_hijri
+        .replace(/\s\d{4}$/, "")
+        .replace(/\s\d{4}.*$/, "");
+
+      return `
     <tr>
-      <td>${session.date_hijri}</td>
+      <td>${index + 1}</td>
+      ${
+        !studentName ? `<td class="font-bold">${session.student_name}</td>` : ""
+      }
+      <td>${dateWithoutYear}</td>
       <td>${session.new_lesson}</td>
       <td><span class="badge badge-${getBadgeClass(session.level)}">${
         session.level
@@ -177,8 +237,8 @@ const generateMonthlyReportHTML = (sessions, month, studentName = null) => {
         session.review_level || "-"
       }</span></td>
     </tr>
-  `
-    )
+  `;
+    })
     .join("");
 
   return `
@@ -202,72 +262,110 @@ const generateMonthlyReportHTML = (sessions, month, studentName = null) => {
       direction: rtl;
       text-align: right;
       padding: 40px;
-      background: #f9fafb;
+      background: #f8fafc;
+      color: #1e293b;
+      -webkit-print-color-adjust: exact;
     }
     
     .container {
-      max-width: 900px;
+      max-width: 100%;
       margin: 0 auto;
       background: white;
       padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 16px;
     }
     
     .header {
       text-align: center;
       margin-bottom: 30px;
-      border-bottom: 3px solid #6366f1;
+      border-bottom: 2px solid #e2e8f0;
       padding-bottom: 20px;
     }
     
     h1 {
       color: #4338ca;
-      font-size: 28px;
-      margin-bottom: 10px;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
     }
     
     .subtitle {
-      color: #6b7280;
-      font-size: 16px;
-      margin-top: 10px;
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .summary-card {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      display: inline-block;
+      box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+    }
+
+    .summary-text {
+      font-size: 18px;
+      font-weight: 700;
     }
     
     table {
       width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 10px;
     }
     
     thead {
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      color: white;
+      background-color: #f8fafc;
     }
     
     th {
-      padding: 15px;
+      padding: 12px 16px;
       text-align: right;
-      font-weight: 600;
-      font-size: 14px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
     }
+
+    th:first-child { border-top-right-radius: 8px; }
+    th:last-child { border-top-left-radius: 8px; }
     
     td {
-      padding: 12px;
+      padding: 12px 16px;
       text-align: right;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #f1f5f9;
       font-size: 13px;
+      color: #334155;
+      vertical-align: middle;
+      word-break: keep-all;
     }
     
-    tbody tr:hover {
-      background-color: #f3f4f6;
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tbody tr:nth-child(even) {
+      background-color: #fcfcfc;
+    }
+
+    .font-bold {
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
     }
     
     .badge {
-      padding: 4px 12px;
-      border-radius: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       display: inline-block;
+      white-space: nowrap;
     }
     
     .badge-excellent { background: #dcfce7; color: #166534; }
@@ -278,12 +376,12 @@ const generateMonthlyReportHTML = (sessions, month, studentName = null) => {
     .badge-repeat { background: #fce7f3; color: #831843; }
     
     .footer {
-      margin-top: 30px;
+      margin-top: 40px;
       text-align: center;
-      color: #9ca3af;
+      color: #94a3b8;
       font-size: 12px;
       padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
+      border-top: 1px solid #e2e8f0;
     }
   </style>
 </head>
@@ -294,15 +392,34 @@ const generateMonthlyReportHTML = (sessions, month, studentName = null) => {
       <p class="subtitle">📅 ${month}</p>
       ${studentName ? `<p class="subtitle">👤 الطالب: ${studentName}</p>` : ""}
     </div>
+
+    <div style="text-align: center; display: flex; justify-content: center; gap: 20px;">
+      <div class="summary-card">
+        <span class="summary-text">إجمالي الحصص: ${sessions.length}</span>
+      </div>
+      ${
+        !studentName
+          ? `
+      <div class="summary-card">
+        <span class="summary-text">إجمالي الطلاب: ${
+          new Set(sessions.map((s) => s.student_name)).size
+        }</span>
+      </div>
+      `
+          : ""
+      }
+    </div>
     
     <table>
       <thead>
         <tr>
+          <th style="width: 50px">#</th>
+          ${!studentName ? "<th>اسم الطالب</th>" : ""}
           <th>التاريخ الهجري</th>
-          <th>درس جديد</th>
+          <th>الحفظ الجديد</th>
           <th>المستوى</th>
-          <th>مراجعة</th>
-          <th>مستوى المراجعة</th>
+          <th>المراجعة</th>
+          <th>المستوي</th>
         </tr>
       </thead>
       <tbody>
