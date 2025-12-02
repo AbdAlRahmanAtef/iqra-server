@@ -14,6 +14,7 @@ const corsOptions = {
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5174",
+    "https://iqra-client-xi.vercel.app",
     "https://iqra-sudent.vercel.app",
     process.env.CLIENT_URL,
   ].filter(Boolean), // Remove undefined values
