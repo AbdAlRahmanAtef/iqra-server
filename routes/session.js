@@ -31,6 +31,20 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Get sessions by student name
+router.get("/student/:studentName", async (req, res) => {
+  try {
+    const [sessions] = await db.execute(
+      "SELECT * FROM sessions WHERE student_name = ? ORDER BY date_gregorian DESC, id DESC",
+      [req.params.studentName]
+    );
+    res.json(sessions);
+  } catch (error) {
+    console.error("Error fetching student sessions:", error);
+    res.status(500).json({ error: "Failed to fetch student sessions" });
+  }
+});
+
 // Create session
 router.post("/", async (req, res) => {
   const { student_name, new_lesson, review, level, review_level } = req.body;
