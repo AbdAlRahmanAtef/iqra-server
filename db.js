@@ -1,8 +1,6 @@
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
-// For serverless environments like Vercel, we don't use connection pools
-// Instead, we create connections on demand and close them after use
 const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,

@@ -61,7 +61,7 @@ app.post("/login", async (req, res) => {
 
 // Routes
 app.use("/session", authMiddleware, sessionRoutes);
-app.use("/report", reportRoutes); // Reports might need protection too, but let's stick to the plan
+app.use("/report", reportRoutes);
 app.use("/students", authMiddleware, studentRoutes);
 
 app.get("/", (req, res) => {
