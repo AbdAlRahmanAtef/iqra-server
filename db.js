@@ -17,7 +17,7 @@ const client = new MongoClient(uri, {
 });
 
 let cachedDb = null;
-let isConnecting = false;
+let connectionPromise = null;
 
 // Get database connection (lazy initialization with caching for serverless)
 const getDb = async () => {
@@ -25,20 +25,25 @@ const getDb = async () => {
     return cachedDb;
   }
 
-  if (!isConnecting) {
-    isConnecting = true;
-    try {
-      await client.connect();
-      cachedDb = client.db("quran_tracker");
-      console.log("Connected to MongoDB");
-    } catch (error) {
-      isConnecting = false;
-      console.error("Failed to connect to MongoDB:", error);
-      throw error;
-    }
+  // If already connecting, wait for that connection
+  if (connectionPromise) {
+    await connectionPromise;
+    return cachedDb;
   }
 
-  return cachedDb;
+  // Start connecting
+  connectionPromise = client.connect();
+
+  try {
+    await connectionPromise;
+    cachedDb = client.db("quran_tracker");
+    console.log("Connected to MongoDB");
+    return cachedDb;
+  } catch (error) {
+    connectionPromise = null;
+    console.error("Failed to connect to MongoDB:", error);
+    throw error;
+  }
 };
 
 // Helper function to get a collection
