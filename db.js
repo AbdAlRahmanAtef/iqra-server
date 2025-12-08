@@ -14,6 +14,10 @@ const client = new MongoClient(uri, {
     strict: false, // Disabled for serverless compatibility
     deprecationErrors: true,
   },
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  retryWrites: true,
+  w: "majority",
 });
 
 let cachedDb = null;
