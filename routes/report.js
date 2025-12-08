@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
+const { getCollection } = require("../db");
 const {
   generateDailyReport,
   generateMonthlyReport,
@@ -10,16 +10,25 @@ const moment = require("moment-hijri");
 
 router.get("/today", async (req, res) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
-    const [sessions] = await db.execute(
-      "SELECT * FROM sessions WHERE date_gregorian = ?",
-      [today]
-    );
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find({
+        date_gregorian: {
+          $gte: today,
+          $lt: tomorrow,
+        },
+      })
+      .toArray();
 
     // Hijri date for title
     const hijriDate = moment().format("iD iMMMM iYYYY");
 
-    const pdfBuffer = await generateDailyReport(sessions, hijriDate);
+    const pdfBuffer = await generateDailyReport(result, hijriDate);
 
     res.writeHead(200, {
       "Content-Type": "application/pdf",
@@ -40,15 +49,18 @@ router.get("/month", async (req, res) => {
   try {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
-    const startStr = startOfMonth.toISOString().split("T")[0];
+    startOfMonth.setHours(0, 0, 0, 0);
 
-    const [sessions] = await db.execute(
-      "SELECT * FROM sessions WHERE date_gregorian >= ? ORDER BY date_gregorian ASC",
-      [startStr]
-    );
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find({
+        date_gregorian: { $gte: startOfMonth },
+      })
+      .sort({ date_gregorian: 1 })
+      .toArray();
 
     const currentMonth = moment().format("iMMMM iYYYY");
-    const pdfBuffer = await generateMonthlyReport(sessions, currentMonth);
+    const pdfBuffer = await generateMonthlyReport(result, currentMonth);
 
     res.writeHead(200, {
       "Content-Type": "application/pdf",
@@ -76,15 +88,19 @@ router.get("/student/:studentName", async (req, res) => {
     // Get sessions from last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const startDate = thirtyDaysAgo.toISOString().split("T")[0];
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    const [sessions] = await db.execute(
-      "SELECT * FROM sessions WHERE student_name = ? AND date_gregorian >= ? ORDER BY date_gregorian ASC",
-      [studentName, startDate]
-    );
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find({
+        student_name: studentName,
+        date_gregorian: { $gte: thirtyDaysAgo },
+      })
+      .sort({ date_gregorian: 1 })
+      .toArray();
 
     const pdfBuffer = await generateStudentReport(
-      sessions,
+      result,
       currentMonth,
       studentName
     );

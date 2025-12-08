@@ -28,7 +28,7 @@ app.use(express.json());
 const authMiddleware = require("./middleware/auth");
 
 // Login Route
-const db = require("./db");
+const { getCollection } = require("./db");
 const bcrypt = require("bcrypt");
 
 // Login Route
@@ -36,15 +36,12 @@ app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [admins] = await db.execute("SELECT * FROM admins WHERE email = ?", [
-      email,
-    ]);
+    const admins = await getCollection("admins");
+    const admin = await admins.findOne({ email });
 
-    if (admins.length === 0) {
+    if (!admin) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
-
-    const admin = admins[0];
 
     const isMatch = await bcrypt.compare(password, admin.password);
 

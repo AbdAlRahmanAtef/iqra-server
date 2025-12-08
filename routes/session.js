@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
+const { getCollection, ObjectId } = require("../db");
 
 // Get all sessions
 router.get("/", async (req, res) => {
   try {
-    const [sessions] = await db.execute(
-      "SELECT * FROM sessions ORDER BY date_gregorian DESC, id DESC"
-    );
-    res.json(sessions);
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find()
+      .sort({ date_gregorian: -1, _id: -1 })
+      .toArray();
+    res.json(result);
   } catch (error) {
     console.error("Error fetching sessions:", error);
     res.status(500).json({ error: "Failed to fetch sessions" });
@@ -18,13 +20,14 @@ router.get("/", async (req, res) => {
 // Get session by ID
 router.get("/:id", async (req, res) => {
   try {
-    const [sessions] = await db.execute("SELECT * FROM sessions WHERE id = ?", [
-      req.params.id,
-    ]);
-    if (sessions.length === 0) {
+    const sessions = await getCollection("sessions");
+    const session = await sessions.findOne({
+      _id: new ObjectId(req.params.id),
+    });
+    if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
-    res.json(sessions[0]);
+    res.json(session);
   } catch (error) {
     console.error("Error fetching session:", error);
     res.status(500).json({ error: "Failed to fetch session" });
@@ -34,11 +37,12 @@ router.get("/:id", async (req, res) => {
 // Get sessions by student name
 router.get("/student/:studentName", async (req, res) => {
   try {
-    const [sessions] = await db.execute(
-      "SELECT * FROM sessions WHERE student_name = ? ORDER BY date_gregorian DESC, id DESC",
-      [req.params.studentName]
-    );
-    res.json(sessions);
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find({ student_name: req.params.studentName })
+      .sort({ date_gregorian: -1, _id: -1 })
+      .toArray();
+    res.json(result);
   } catch (error) {
     console.error("Error fetching student sessions:", error);
     res.status(500).json({ error: "Failed to fetch student sessions" });
@@ -59,22 +63,21 @@ router.post("/", async (req, res) => {
     moment.locale("ar-sa");
     const dateHijriString = moment().format("iD iMMMM iYYYY");
 
-    const [result] = await db.execute(
-      "INSERT INTO sessions (date_hijri, date_gregorian, student_name, new_lesson, review, level, review_level) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [
-        dateHijriString,
-        today,
-        student_name,
-        new_lesson,
-        review,
-        level,
-        review_level || null,
-      ]
-    );
+    const sessions = await getCollection("sessions");
+    const result = await sessions.insertOne({
+      date_hijri: dateHijriString,
+      date_gregorian: today,
+      student_name,
+      new_lesson,
+      review,
+      level,
+      review_level: review_level || null,
+      created_at: new Date(),
+    });
 
     res
       .status(201)
-      .json({ message: "Session saved successfully", id: result.insertId });
+      .json({ message: "Session saved successfully", id: result.insertedId });
   } catch (error) {
     console.error("Error saving session:", error);
     res.status(500).json({ error: "Failed to save session" });
@@ -98,34 +101,29 @@ router.put("/:id", async (req, res) => {
   }
 
   try {
+    const updateData = {
+      student_name,
+      new_lesson,
+      review,
+      level,
+      review_level: review_level || null,
+    };
+
     // If date is provided, recalculate Hijri date
-    let dateHijri = null;
     if (date_gregorian) {
       const moment = require("moment-hijri");
       moment.locale("ar-sa");
-      dateHijri = moment(date_gregorian).format("iD iMMMM iYYYY");
+      updateData.date_hijri = moment(date_gregorian).format("iD iMMMM iYYYY");
+      updateData.date_gregorian = new Date(date_gregorian);
     }
 
-    const updateQuery = dateHijri
-      ? "UPDATE sessions SET student_name = ?, new_lesson = ?, review = ?, level = ?, review_level = ?, date_gregorian = ?, date_hijri = ? WHERE id = ?"
-      : "UPDATE sessions SET student_name = ?, new_lesson = ?, review = ?, level = ?, review_level = ? WHERE id = ?";
+    const sessions = await getCollection("sessions");
+    const result = await sessions.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
-    const updateParams = dateHijri
-      ? [
-          student_name,
-          new_lesson,
-          review,
-          level,
-          review_level || null,
-          date_gregorian,
-          dateHijri,
-          id,
-        ]
-      : [student_name, new_lesson, review, level, review_level || null, id];
-
-    const [result] = await db.execute(updateQuery, updateParams);
-
-    if (result.affectedRows === 0) {
+    if (result.matchedCount === 0) {
       return res.status(404).json({ error: "Session not found" });
     }
 
@@ -139,11 +137,12 @@ router.put("/:id", async (req, res) => {
 // Delete session
 router.delete("/:id", async (req, res) => {
   try {
-    const [result] = await db.execute("DELETE FROM sessions WHERE id = ?", [
-      req.params.id,
-    ]);
+    const sessions = await getCollection("sessions");
+    const result = await sessions.deleteOne({
+      _id: new ObjectId(req.params.id),
+    });
 
-    if (result.affectedRows === 0) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Session not found" });
     }
 

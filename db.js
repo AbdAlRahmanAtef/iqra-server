@@ -1,27 +1,38 @@
-const mysql = require("mysql2/promise");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
-  // Serverless-friendly settings
-  connectTimeout: 10000,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
+const uri = process.env.MONGO_URI;
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+
+let db = null;
+
+// Get database connection (lazy initialization)
+const getDb = async () => {
+  if (!db) {
+    await client.connect();
+    db = client.db("quran_tracker");
+  }
+  return db;
 };
 
-// Export the config and a helper to create connections
+// Helper function to get a collection
+const getCollection = async (collectionName) => {
+  const database = await getDb();
+  return database.collection(collectionName);
+};
+
+// Export helpers
 module.exports = {
-  execute: async (query, params) => {
-    const connection = await mysql.createConnection(dbConfig);
-    try {
-      const result = await connection.execute(query, params);
-      return result;
-    } finally {
-      await connection.end();
-    }
-  },
+  getDb,
+  getCollection,
+  ObjectId,
+  client,
 };
