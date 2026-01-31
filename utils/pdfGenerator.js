@@ -580,7 +580,7 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
     }
     
     h1 {
-      color: #dc2626;
+      color: #4338ca;
       font-size: 24px;
       font-weight: 800;
       margin-bottom: 8px;
@@ -594,13 +594,13 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
     }
 
     .summary-card {
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
       color: white;
       padding: 12px 24px;
       border-radius: 12px;
       margin-bottom: 25px;
       display: inline-block;
-      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+      box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
     }
 
     .summary-text {
@@ -616,7 +616,7 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
     }
     
     thead {
-      background-color: #fef2f2;
+      background-color: #f8fafc;
     }
     
     th {
@@ -624,8 +624,8 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
       text-align: right;
       font-weight: 700;
       font-size: 12px;
-      color: #991b1b;
-      border-bottom: 2px solid #fecaca;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
       white-space: nowrap;
     }
 
@@ -647,7 +647,7 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
     }
     
     tbody tr:nth-child(even) {
-      background-color: #fef2f2;
+      background-color: #fcfcfc;
     }
 
     .font-bold {
@@ -729,9 +729,15 @@ const generateUnpaidReport = async (sessions, studentName) => {
   return await generatePDFFromHTML(html);
 };
 
+const generateLastSevenReport = async (sessions, studentName) => {
+  const html = generateMonthlyReportHTML(sessions, "آخر 7 حصص", studentName);
+  return await generatePDFFromHTML(html);
+};
+
 module.exports = {
   generateDailyReport,
   generateMonthlyReport,
   generateStudentReport,
   generateUnpaidReport,
+  generateLastSevenReport,
 };

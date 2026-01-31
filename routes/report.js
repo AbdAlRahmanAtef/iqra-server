@@ -6,6 +6,7 @@ const {
   generateMonthlyReport,
   generateStudentReport,
   generateUnpaidReport,
+  generateLastSevenReport,
 } = require("../utils/pdfGenerator");
 const moment = require("moment-hijri");
 
@@ -255,6 +256,43 @@ router.get("/unpaid/:studentName", async (req, res) => {
     console.error("Error generating unpaid report:", error);
     if (!res.headersSent) {
       res.status(500).json({ error: "Failed to generate unpaid report" });
+    }
+  }
+});
+
+// Generate last 7 lessons report for specific student
+router.get("/last7/:studentName", async (req, res) => {
+  try {
+    const { studentName } = req.params;
+    moment.locale("ar-sa");
+
+    const sessions = await getCollection("sessions");
+    let result = await sessions
+      .find({
+        student_name: studentName,
+      })
+      .sort({ date_gregorian: -1 }) // Sort descending to get latest
+      .limit(7)
+      .toArray();
+
+    // Reverse to show in chronological order (oldest to newest among the 7)
+    result = result.reverse();
+
+    console.log("Found last 7 sessions:", result.length);
+
+    const pdfBuffer = await generateLastSevenReport(result, studentName);
+
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": 'attachment; filename="last7-lessons-report.pdf"',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
+    res.end(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating last 7 report:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate last 7 report" });
     }
   }
 });
