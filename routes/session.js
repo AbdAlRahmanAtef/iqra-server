@@ -51,7 +51,8 @@ router.get("/student/:studentName", async (req, res) => {
 
 // Create session
 router.post("/", async (req, res) => {
-  const { student_name, new_lesson, review, level, review_level } = req.body;
+  const { student_name, new_lesson, review, level, review_level, is_paid } =
+    req.body;
 
   if (!student_name || !new_lesson || !review || !level) {
     return res.status(400).json({ error: "All fields are required" });
@@ -72,6 +73,7 @@ router.post("/", async (req, res) => {
       review,
       level,
       review_level: review_level || null,
+      is_paid: is_paid || false,
       created_at: new Date(),
     });
 
@@ -94,6 +96,7 @@ router.put("/:id", async (req, res) => {
     level,
     review_level,
     date_gregorian,
+    is_paid,
   } = req.body;
 
   if (!student_name || !new_lesson || !review || !level) {
@@ -107,6 +110,7 @@ router.put("/:id", async (req, res) => {
       review,
       level,
       review_level: review_level || null,
+      is_paid: is_paid || false,
     };
 
     // If date is provided, recalculate Hijri date

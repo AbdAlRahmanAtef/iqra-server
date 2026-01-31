@@ -513,8 +513,225 @@ const generateStudentReport = async (sessions, month, studentName) => {
   return await generatePDFFromHTML(html);
 };
 
+// HTML template for unpaid lessons report
+const generateUnpaidReportHTML = (sessions, studentName) => {
+  const sessionRows = sessions
+    .map((session, index) => {
+      const dateWithoutYear = session.date_hijri
+        .replace(/\s\d{4}$/, "")
+        .replace(/\s\d{4}.*$/, "");
+
+      return `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${dateWithoutYear}</td>
+      <td>${session.new_lesson}</td>
+      <td><span class="badge badge-${getBadgeClass(session.level)}">${
+        session.level
+      }</span></td>
+      <td>${session.review}</td>
+      <td><span class="badge badge-${getBadgeClass(session.review_level)}">${
+        session.review_level || "-"
+      }</span></td>
+    </tr>
+  `;
+    })
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تقرير الحصص غير المدفوعة</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Cairo', sans-serif;
+      direction: rtl;
+      text-align: right;
+      padding: 40px;
+      background: #f8fafc;
+      color: #1e293b;
+      -webkit-print-color-adjust: exact;
+    }
+    
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 20px;
+    }
+    
+    h1 {
+      color: #dc2626;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .summary-card {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      display: inline-block;
+      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+    }
+
+    .summary-text {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 10px;
+    }
+    
+    thead {
+      background-color: #fef2f2;
+    }
+    
+    th {
+      padding: 12px 16px;
+      text-align: right;
+      font-weight: 700;
+      font-size: 12px;
+      color: #991b1b;
+      border-bottom: 2px solid #fecaca;
+      white-space: nowrap;
+    }
+
+    th:first-child { border-top-right-radius: 8px; }
+    th:last-child { border-top-left-radius: 8px; }
+    
+    td {
+      padding: 12px 16px;
+      text-align: right;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #334155;
+      vertical-align: middle;
+      word-break: keep-all;
+    }
+    
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tbody tr:nth-child(even) {
+      background-color: #fef2f2;
+    }
+
+    .font-bold {
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+    
+    .badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    
+    .badge-excellent { background: #dcfce7; color: #166534; }
+    .badge-good { background: #dbeafe; color: #1e40af; }
+    .badge-average { background: #fef3c7; color: #92400e; }
+    .badge-weak { background: #fee2e2; color: #991b1b; }
+    .badge-wait { background: #e0e7ff; color: #3730a3; }
+    .badge-repeat { background: #fce7f3; color: #831843; }
+    
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💰 تقرير الحصص غير المدفوعة</h1>
+      <p class="subtitle">👤 الطالب: ${studentName}</p>
+    </div>
+
+    <div style="text-align: center; display: flex; justify-content: center; gap: 20px;">
+      <div class="summary-card">
+        <span class="summary-text">إجمالي الحصص غير المدفوعة: ${
+          sessions.length
+        }</span>
+      </div>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50px">#</th>
+          <th>التاريخ الهجري</th>
+          <th>الحفظ الجديد</th>
+          <th>المستوى</th>
+          <th>المراجعة</th>
+          <th>المستوي</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sessionRows}
+      </tbody>
+    </table>
+    
+    <div class="footer">
+      <p>نظام متابعة حلقات القرآن - تم الإنشاء بتاريخ ${new Date().toLocaleDateString(
+        "ar-EG"
+      )}</p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+};
+
+const generateUnpaidReport = async (sessions, studentName) => {
+  const html = generateUnpaidReportHTML(sessions, studentName);
+  return await generatePDFFromHTML(html);
+};
+
 module.exports = {
   generateDailyReport,
   generateMonthlyReport,
   generateStudentReport,
+  generateUnpaidReport,
 };

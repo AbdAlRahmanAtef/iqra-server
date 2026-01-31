@@ -5,6 +5,7 @@ const {
   generateDailyReport,
   generateMonthlyReport,
   generateStudentReport,
+  generateUnpaidReport,
 } = require("../utils/pdfGenerator");
 const moment = require("moment-hijri");
 
@@ -216,6 +217,44 @@ router.get("/student/:studentName", async (req, res) => {
     console.error("Error generating student report:", error);
     if (!res.headersSent) {
       res.status(500).json({ error: "Failed to generate student report" });
+    }
+  }
+});
+
+// Generate unpaid lessons report for specific student
+router.get("/unpaid/:studentName", async (req, res) => {
+  try {
+    const { studentName } = req.params;
+    moment.locale("ar-sa");
+
+    const sessions = await getCollection("sessions");
+    const result = await sessions
+      .find({
+        student_name: studentName,
+        $or: [
+          { is_paid: false },
+          { is_paid: null },
+          { is_paid: { $exists: false } },
+        ],
+      })
+      .sort({ date_gregorian: 1 })
+      .toArray();
+
+    console.log("Found unpaid sessions:", result.length);
+
+    const pdfBuffer = await generateUnpaidReport(result, studentName);
+
+    res.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Length": pdfBuffer.length,
+      "Content-Disposition": 'attachment; filename="unpaid-lessons-report.pdf"',
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
+    res.end(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating unpaid report:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate unpaid report" });
     }
   }
 });

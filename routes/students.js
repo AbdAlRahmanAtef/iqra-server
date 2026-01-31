@@ -21,6 +21,21 @@ router.get("/", async (req, res) => {
         {
           $addFields: {
             session_count: { $size: "$sessions" },
+            unpaid_session_count: {
+              $size: {
+                $filter: {
+                  input: "$sessions",
+                  as: "session",
+                  cond: {
+                    $or: [
+                      { $eq: ["$$session.is_paid", false] },
+                      { $eq: ["$$session.is_paid", null] },
+                      { $not: { $ifNull: ["$$session.is_paid", false] } },
+                    ],
+                  },
+                },
+              },
+            },
           },
         },
         {
