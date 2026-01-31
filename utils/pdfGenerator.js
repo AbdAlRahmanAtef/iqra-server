@@ -685,13 +685,13 @@ const generateUnpaidReportHTML = (sessions, studentName) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>💰 تقرير الحصص غير المدفوعة</h1>
+      <h1>تقرير الحصص الجديدة</h1>
       <p class="subtitle">👤 الطالب: ${studentName}</p>
     </div>
 
     <div style="text-align: center; display: flex; justify-content: center; gap: 20px;">
       <div class="summary-card">
-        <span class="summary-text">إجمالي الحصص غير المدفوعة: ${
+        <span class="summary-text">إجمالي الحصص الجديدة: ${
           sessions.length
         }</span>
       </div>
