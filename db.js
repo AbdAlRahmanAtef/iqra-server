@@ -1,65 +1,35 @@
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { Pool } = require("pg");
 require("dotenv").config();
 
-const uri = process.env.MONGO_URI;
+const uri = process.env.POSTGRES_URI;
 
 if (!uri) {
-  console.error("MONGO_URI environment variable is not set!");
+  console.error("POSTGRES_URI environment variable is not set!");
 }
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: false, // Disabled for serverless compatibility
-    deprecationErrors: true,
-  },
-  tls: true,
-  tlsAllowInvalidCertificates: false,
-  retryWrites: true,
-  w: "majority",
+const pool = new Pool({
+  connectionString: uri,
+  ssl: {
+    rejectUnauthorized: false
+  } // Ensure Supabase handles SSL correctly
 });
 
-let cachedDb = null;
-let connectionPromise = null;
+pool.on("error", (err, client) => {
+  console.error("Unexpected error on idle client", err);
+});
 
-// Get database connection (lazy initialization with caching for serverless)
-const getDb = async () => {
-  if (cachedDb) {
-    return cachedDb;
-  }
-
-  // If already connecting, wait for that connection
-  if (connectionPromise) {
-    await connectionPromise;
-    return cachedDb;
-  }
-
-  // Start connecting
-  connectionPromise = client.connect();
-
-  try {
-    await connectionPromise;
-    cachedDb = client.db("quran_tracker");
-    console.log("Connected to MongoDB");
-    return cachedDb;
-  } catch (error) {
-    connectionPromise = null;
-    console.error("Failed to connect to MongoDB:", error);
-    throw error;
-  }
-};
-
-// Helper function to get a collection
-const getCollection = async (collectionName) => {
-  const database = await getDb();
-  return database.collection(collectionName);
-};
-
-// Export helpers
 module.exports = {
-  getDb,
-  getCollection,
-  ObjectId,
-  client,
+  query: async (text, params) => {
+    const result = await pool.query(text, params);
+    if (result.rows && result.rows.length > 0) {
+      result.rows = result.rows.map((row) => {
+        if (row.id && !row._id) {
+          row._id = row.id;
+        }
+        return row;
+      });
+    }
+    return result;
+  },
+  pool,
 };

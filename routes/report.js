@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getCollection } = require("../db");
+const { query } = require("../db");
 const {
   generateDailyReport,
   generateMonthlyReport,
@@ -17,20 +17,15 @@ router.get("/today", async (req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find({
-        date_gregorian: {
-          $gte: today,
-          $lt: tomorrow,
-        },
-      })
-      .toArray();
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE date_gregorian >= $1 AND date_gregorian < $2 ORDER BY date_gregorian ASC",
+      [today, tomorrow]
+    );
 
     // Hijri date for title
     const hijriDate = moment().format("iD iMMMM iYYYY");
 
-    const pdfBuffer = await generateDailyReport(result, hijriDate);
+    const pdfBuffer = await generateDailyReport(rows, hijriDate);
 
     res.writeHead(200, {
       "Content-Type": "application/pdf",
@@ -51,27 +46,20 @@ router.get("/month", async (req, res) => {
   try {
     let startDate, endDate;
 
-    // Check if a start date was provided (format: YYYY-MM-DD)
-    // Check if a start date was provided (format: YYYY-MM-DD)
     if (req.query.startDate) {
       console.log(
         "Monthly report - Received startDate param:",
         req.query.startDate
       );
-      // Parse the date and set to beginning of day UTC
-      // Dates in MongoDB are stored at 22:00 UTC (midnight Cairo time)
       const [year, month, day] = req.query.startDate.split("-").map(Number);
-      // Set start date to the previous day 22:00 UTC to catch the actual day
       startDate = new Date(Date.UTC(year, month - 1, day - 1, 22, 0, 0, 0));
     } else {
-      // Default: first day of current month
       const now = new Date();
       startDate = new Date(
         Date.UTC(now.getFullYear(), now.getMonth(), 0, 22, 0, 0, 0)
       );
     }
 
-    // End date is tomorrow at 00:00 UTC to include today's sessions
     endDate = new Date();
     endDate = new Date(
       Date.UTC(
@@ -92,27 +80,20 @@ router.get("/month", async (req, res) => {
       endDate.toISOString()
     );
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find({
-        date_gregorian: {
-          $gte: startDate,
-          $lte: endDate,
-        },
-      })
-      .sort({ date_gregorian: 1 })
-      .toArray();
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE date_gregorian >= $1 AND date_gregorian <= $2 ORDER BY date_gregorian ASC",
+      [startDate, endDate]
+    );
 
-    console.log("Found sessions:", result.length);
+    console.log("Found sessions:", rows.length);
 
-    // Format the date range for the PDF title
     const startMoment = moment(startDate);
     const endMoment = moment(endDate);
     const dateRangeTitle = `${startMoment.format(
       "iD iMMMM"
     )} - ${endMoment.format("iD iMMMM iYYYY")}`;
 
-    const pdfBuffer = await generateMonthlyReport(result, dateRangeTitle);
+    const pdfBuffer = await generateMonthlyReport(rows, dateRangeTitle);
 
     res.writeHead(200, {
       "Content-Type": "application/pdf",
@@ -137,24 +118,17 @@ router.get("/student/:studentName", async (req, res) => {
 
     let startDate, endDate;
 
-    // Check if a start date was provided (format: YYYY-MM-DD)
     if (req.query.startDate) {
       console.log("Received startDate param:", req.query.startDate);
-      // Parse the date and set to beginning of day UTC
-      // Dates in MongoDB are stored at 22:00 UTC (midnight Cairo time)
-      // So for Oct 4, the stored date is Oct 3 22:00 UTC
       const [year, month, day] = req.query.startDate.split("-").map(Number);
-      // Set start date to the previous day 22:00 UTC to catch the actual day
       startDate = new Date(Date.UTC(year, month - 1, day - 1, 22, 0, 0, 0));
     } else {
-      // Default: first day of current month
       const now = new Date();
       startDate = new Date(
         Date.UTC(now.getFullYear(), now.getMonth(), 0, 22, 0, 0, 0)
       );
     }
 
-    // End date is tomorrow at 00:00 UTC to include today's sessions
     endDate = new Date();
     endDate = new Date(
       Date.UTC(
@@ -175,34 +149,26 @@ router.get("/student/:studentName", async (req, res) => {
       endDate.toISOString()
     );
 
-    // Format the date range for the PDF title
     const startMoment = moment(startDate);
     const endMoment = moment(endDate);
     const dateRangeTitle = `${startMoment.format(
       "iD iMMMM"
     )} - ${endMoment.format("iD iMMMM iYYYY")}`;
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find({
-        student_name: studentName,
-        date_gregorian: {
-          $gte: startDate,
-          $lte: endDate,
-        },
-      })
-      .sort({ date_gregorian: 1 })
-      .toArray();
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE student_name = $1 AND date_gregorian >= $2 AND date_gregorian <= $3 ORDER BY date_gregorian ASC",
+      [studentName, startDate, endDate]
+    );
 
-    console.log("Found sessions:", result.length);
-    result.forEach((s) => {
+    console.log("Found sessions:", rows.length);
+    rows.forEach((s) => {
       console.log(
         `Session: ${s.date_gregorian} (${s.date_hijri}) - ${s.new_lesson}`
       );
     });
 
     const pdfBuffer = await generateStudentReport(
-      result,
+      rows,
       dateRangeTitle,
       studentName
     );
@@ -228,22 +194,14 @@ router.get("/unpaid/:studentName", async (req, res) => {
     const { studentName } = req.params;
     moment.locale("ar-sa");
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find({
-        student_name: studentName,
-        $or: [
-          { is_paid: false },
-          { is_paid: null },
-          { is_paid: { $exists: false } },
-        ],
-      })
-      .sort({ date_gregorian: 1 })
-      .toArray();
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE student_name = $1 AND (is_paid = false OR is_paid IS NULL) ORDER BY date_gregorian ASC",
+      [studentName]
+    );
 
-    console.log("Found unpaid sessions:", result.length);
+    console.log("Found unpaid sessions:", rows.length);
 
-    const pdfBuffer = await generateUnpaidReport(result, studentName);
+    const pdfBuffer = await generateUnpaidReport(rows, studentName);
 
     res.writeHead(200, {
       "Content-Type": "application/pdf",
@@ -266,17 +224,12 @@ router.get("/last7/:studentName", async (req, res) => {
     const { studentName } = req.params;
     moment.locale("ar-sa");
 
-    const sessions = await getCollection("sessions");
-    let result = await sessions
-      .find({
-        student_name: studentName,
-      })
-      .sort({ date_gregorian: -1 }) // Sort descending to get latest
-      .limit(7)
-      .toArray();
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE student_name = $1 ORDER BY date_gregorian DESC LIMIT 7",
+      [studentName]
+    );
 
-    // Reverse to show in chronological order (oldest to newest among the 7)
-    result = result.reverse();
+    let result = rows.reverse();
 
     console.log("Found last 7 sessions:", result.length);
 

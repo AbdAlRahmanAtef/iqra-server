@@ -1,16 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { getCollection, ObjectId } = require("../db");
+const { query } = require("../db");
 
 // Get all sessions
 router.get("/", async (req, res) => {
   try {
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find()
-      .sort({ date_gregorian: -1, _id: -1 })
-      .toArray();
-    res.json(result);
+    const { rows } = await query("SELECT * FROM sessions ORDER BY date_gregorian DESC, id DESC");
+    res.json(rows);
   } catch (error) {
     console.error("Error fetching sessions:", error);
     res.status(500).json({ error: "Failed to fetch sessions" });
@@ -20,13 +16,13 @@ router.get("/", async (req, res) => {
 // Get session by ID
 router.get("/:id", async (req, res) => {
   try {
-    const sessions = await getCollection("sessions");
-    const session = await sessions.findOne({
-      _id: new ObjectId(req.params.id),
-    });
+    const { rows } = await query("SELECT * FROM sessions WHERE id = $1", [req.params.id]);
+    const session = rows[0];
+    
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
+    
     res.json(session);
   } catch (error) {
     console.error("Error fetching session:", error);
@@ -37,12 +33,11 @@ router.get("/:id", async (req, res) => {
 // Get sessions by student name
 router.get("/student/:studentName", async (req, res) => {
   try {
-    const sessions = await getCollection("sessions");
-    const result = await sessions
-      .find({ student_name: req.params.studentName })
-      .sort({ date_gregorian: -1, _id: -1 })
-      .toArray();
-    res.json(result);
+    const { rows } = await query(
+      "SELECT * FROM sessions WHERE student_name = $1 ORDER BY date_gregorian DESC, id DESC", 
+      [req.params.studentName]
+    );
+    res.json(rows);
   } catch (error) {
     console.error("Error fetching student sessions:", error);
     res.status(500).json({ error: "Failed to fetch student sessions" });
@@ -64,22 +59,15 @@ router.post("/", async (req, res) => {
     moment.locale("ar-sa");
     const dateHijriString = moment().format("iD iMMMM iYYYY");
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions.insertOne({
-      date_hijri: dateHijriString,
-      date_gregorian: today,
-      student_name,
-      new_lesson,
-      review,
-      level,
-      review_level: review_level || null,
-      is_paid: is_paid || false,
-      created_at: new Date(),
-    });
+    const { rows } = await query(
+      `INSERT INTO sessions (date_hijri, date_gregorian, student_name, new_lesson, review, level, review_level, is_paid)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [dateHijriString, today, student_name, new_lesson, review, level, review_level || null, is_paid || false]
+    );
 
     res
       .status(201)
-      .json({ message: "Session saved successfully", id: result.insertedId });
+      .json({ message: "Session saved successfully", id: rows[0].id });
   } catch (error) {
     console.error("Error saving session:", error);
     res.status(500).json({ error: "Failed to save session" });
@@ -121,13 +109,16 @@ router.put("/:id", async (req, res) => {
       updateData.date_gregorian = new Date(date_gregorian);
     }
 
-    const sessions = await getCollection("sessions");
-    const result = await sessions.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
+    const setClause = Object.keys(updateData).map((key, index) => `${key} = $${index + 1}`).join(", ");
+    const values = Object.values(updateData);
+    values.push(id);
+
+    const { rows } = await query(
+      `UPDATE sessions SET ${setClause} WHERE id = $${values.length} RETURNING id`,
+      values
     );
 
-    if (result.matchedCount === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({ error: "Session not found" });
     }
 
@@ -141,12 +132,9 @@ router.put("/:id", async (req, res) => {
 // Delete session
 router.delete("/:id", async (req, res) => {
   try {
-    const sessions = await getCollection("sessions");
-    const result = await sessions.deleteOne({
-      _id: new ObjectId(req.params.id),
-    });
+    const { rowCount } = await query("DELETE FROM sessions WHERE id = $1", [req.params.id]);
 
-    if (result.deletedCount === 0) {
+    if (rowCount === 0) {
       return res.status(404).json({ error: "Session not found" });
     }
 
